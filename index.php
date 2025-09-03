@@ -1,36 +1,58 @@
-<?php require_once __DIR__ . '/header.php'; ?>
-
 <?php
-// Fetch posts
-$stmt = $pdo->query("SELECT p.id, p.title, p.content, p.created_at, u.username
-                     FROM posts p
-                     LEFT JOIN users u ON u.id = p.user_id
-                     ORDER BY p.created_at DESC");
-$posts = $stmt->fetchAll();
+require_once __DIR__ . '/config.php';
+
+if (!is_logged_in()) {
+    die("You must be logged in to edit a post.");
+}
+
+if (!isset($_GET['id'])) {
+    die("Invalid request.");
+}
+
+$post_id = (int) $_GET['id'];
+$current_user_id = $_SESSION['user_id']; // logged-in user
+
+// fetch post only if it belongs to the logged-in user
+$stmt = $pdo->prepare("SELECT * FROM posts WHERE id = ? AND user_id = ?");
+$stmt->execute([$post_id, $current_user_id]);
+$post = $stmt->fetch();
+
+if (!$post) {
+    die("Post not found or you are not allowed to edit this post.");
+}
+
+// update post when form is submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $title = trim($_POST['title']);
+    $content = trim($_POST['content']);
+
+    $stmt = $pdo->prepare("UPDATE posts SET title = ?, content = ? WHERE id = ? AND user_id = ?");
+    $stmt->execute([$title, $content, $post_id, $current_user_id]);
+
+    header("Location: index.php");
+    exit;
+}
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3">All Posts</h1>
-  <?php if (is_logged_in()): ?>
-    <a href="/create.php" class="btn btn-primary">+ New Post</a>
-  <?php endif; ?>
-</div>
-
-<?php if (empty($posts)): ?>
-  <div class="alert alert-info">No posts yet.</div>
-<?php else: ?>
-  <div class="list-group">
-    <?php foreach ($posts as $post): ?>
-      <a href="/view.php?id=<?= $post['id'] ?>" class="list-group-item list-group-item-action">
-        <div class="d-flex w-100 justify-content-between">
-          <h5 class="mb-1"><?= htmlspecialchars($post['title']) ?></h5>
-          <small><?= htmlspecialchars($post['created_at']) ?></small>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Post</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container mt-5">
+    <h2>Edit Post</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label>Title</label>
+            <input type="text" name="title" value="<?php echo htmlspecialchars($post['title']); ?>" class="form-control" required>
         </div>
-        <p class="mb-1 text-truncate"><?= htmlspecialchars($post['content']) ?></p>
-        <small>By <?= htmlspecialchars($post['username'] ?? 'Unknown') ?></small>
-      </a>
-    <?php endforeach; ?>
-  </div>
-<?php endif; ?>
-
-<?php require_once __DIR__ . '/footer.php'; ?>
+        <div class="mb-3">
+            <label>Content</label>
+            <textarea name="content" class="form-control" required><?php echo htmlspecialchars($post['content']); ?></textarea>
+        </div>
+        <button type="submit" class="btn btn-success">Update</button>
+        <a href="index.php" class="btn btn-secondary">Cancel</a>
+    </form>
+</body>
+</html>

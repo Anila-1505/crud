@@ -1,23 +1,24 @@
 <?php
 require_once __DIR__ . '/config.php';
-if (!is_logged_in()) { header('Location: /login.php'); exit; }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo "Method Not Allowed";
-    exit;
+if (!is_logged_in()) {
+    die("You must be logged in to delete a post.");
 }
 
-$id = $_POST['id'] ?? null;
-if (!$id || !ctype_digit($id)) {
-    http_response_code(400);
-    echo "Invalid post ID.";
-    exit;
+if (!isset($_GET['id'])) {
+    die("Invalid request.");
 }
 
-$stmt = $pdo->prepare("DELETE FROM posts WHERE id = ?");
-$stmt->execute([$id]);
+$post_id = (int) $_GET['id'];
+$current_user_id = $_SESSION['user_id']; // logged-in user
 
-header("Location: /");
+// delete only if it belongs to the logged-in user
+$stmt = $pdo->prepare("DELETE FROM posts WHERE id = ? AND user_id = ?");
+$stmt->execute([$post_id, $current_user_id]);
+
+if ($stmt->rowCount() === 0) {
+    die("Post not found or you are not allowed to delete this post.");
+}
+
+header("Location: index.php");
 exit;
-?>

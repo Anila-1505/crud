@@ -7,39 +7,44 @@ if (!is_logged_in()) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $title = trim($_POST['title']);
-    $content = trim($_POST['content']);
+    $title = trim($_POST['title'] ?? '');
+    $content = trim($_POST['content'] ?? '');
+    $user_id = $_SESSION['user_id']; // ✅ use session user_id directly
 
     if ($title !== '' && $content !== '') {
         $stmt = $pdo->prepare("INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)");
-        $stmt->execute([$title, $content, $_SESSION['user_id']]);
+        $stmt->execute([$title, $content, $user_id]);
 
-        // ✅ Redirect back to posts list
         header("Location: index.php");
         exit;
     } else {
-        $error = "Both fields are required!";
+        $error = "Both title and content are required.";
     }
 }
 ?>
 
-<?php include 'header.php'; ?>
-<div class="container">
-    <h2>New Post</h2>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>New Post</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container mt-5">
+    <h2>Create New Post</h2>
     <?php if (!empty($error)): ?>
-        <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+        <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
-    <form method="post" action="create.php">
+    <form method="POST">
         <div class="mb-3">
-            <label class="form-label">Title</label>
+            <label>Title</label>
             <input type="text" name="title" class="form-control" required>
         </div>
         <div class="mb-3">
-            <label class="form-label">Content</label>
-            <textarea name="content" class="form-control" rows="5" required></textarea>
+            <label>Content</label>
+            <textarea name="content" class="form-control" required></textarea>
         </div>
-        <button type="submit" class="btn btn-primary">Create</button>
-        <a href="index.php" class="btn btn-link">Cancel</a>
+        <button type="submit" class="btn btn-primary">Post</button>
+        <a href="index.php" class="btn btn-secondary">Cancel</a>
     </form>
-</div>
-<?php include 'footer.php'; ?>
+</body>
+</html>

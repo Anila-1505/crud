@@ -1,66 +1,58 @@
-<?php require_once __DIR__ . '/header.php'; ?>
-<?php if (!is_logged_in()) { header('Location: /login.php'); exit; } ?>
-
 <?php
-$id = $_GET['id'] ?? null;
-if (!$id || !ctype_digit($id)) {
-    http_response_code(400);
-    echo '<div class="alert alert-danger">Invalid post ID.</div>';
-    require_once __DIR__ . '/footer.php';
-    exit;
+require_once __DIR__ . '/config.php';
+
+if (!is_logged_in()) {
+    die("You must be logged in to edit a post.");
 }
 
-$stmt = $pdo->prepare("SELECT * FROM posts WHERE id = ?");
-$stmt->execute([$id]);
+if (!isset($_GET['id'])) {
+    die("Invalid request.");
+}
+
+$post_id = (int) $_GET['id'];
+$current_user_id = $_SESSION['user_id']; // logged-in user
+
+// fetch post only if it belongs to the logged-in user
+$stmt = $pdo->prepare("SELECT * FROM posts WHERE id = ? AND user_id = ?");
+$stmt->execute([$post_id, $current_user_id]);
 $post = $stmt->fetch();
+
 if (!$post) {
-    http_response_code(404);
-    echo '<div class="alert alert-danger">Post not found.</div>';
-    require_once __DIR__ . '/footer.php';
-    exit;
+    die("Post not found or you are not allowed to edit this post.");
 }
 
-$title = $post['title'];
-$content = $post['content'];
-$errors = [];
-
+// update post when form is submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $title = trim($_POST['title'] ?? '');
-    $content = trim($_POST['content'] ?? '');
+    $title = trim($_POST['title']);
+    $content = trim($_POST['content']);
 
-    if ($title === "") $errors[] = "Title is required.";
-    if ($content === "") $errors[] = "Content is required.";
+    $stmt = $pdo->prepare("UPDATE posts SET title = ?, content = ? WHERE id = ? AND user_id = ?");
+    $stmt->execute([$title, $content, $post_id, $current_user_id]);
 
-    if (!$errors) {
-        $stmt = $pdo->prepare("UPDATE posts SET title = ?, content = ? WHERE id = ?");
-        $stmt->execute([$title, $content, $id]);
-        header("Location: /view.php?id=" . $id);
-        exit;
-    }
+    header("Location: index.php");
+    exit;
 }
 ?>
 
-<h1 class="h3 mb-3">Edit Post</h1>
-
-<?php if ($errors): ?>
-  <div class="alert alert-danger">
-    <ul class="mb-0">
-      <?php foreach ($errors as $e): ?><li><?= htmlspecialchars($e) ?></li><?php endforeach; ?>
-    </ul>
-  </div>
-<?php endif; ?>
-
-<form method="POST">
-  <div class="mb-3">
-    <label class="form-label">Title</label>
-    <input class="form-control" name="title" value="<?= htmlspecialchars($title) ?>">
-  </div>
-  <div class="mb-3">
-    <label class="form-label">Content</label>
-    <textarea class="form-control" name="content" rows="6"><?= htmlspecialchars($content) ?></textarea>
-  </div>
-  <button class="btn btn-primary">Save Changes</button>
-  <a href="/view.php?id=<?= $id ?>" class="btn btn-link">Cancel</a>
-</form>
-
-<?php require_once __DIR__ . '/footer.php'; ?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Post</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container mt-5">
+    <h2>Edit Post</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label>Title</label>
+            <input type="text" name="title" value="<?php echo htmlspecialchars($post['title']); ?>" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label>Content</label>
+            <textarea name="content" class="form-control" required><?php echo htmlspecialchars($post['content']); ?></textarea>
+        </div>
+        <button type="submit" class="btn btn-success">Update</button>
+        <a href="index.php" class="btn btn-secondary">Cancel</a>
+    </form>
+</body>
+</html>
